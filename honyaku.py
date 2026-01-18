@@ -1,19 +1,20 @@
 import streamlit as st
 from googletrans import Translator
 from streamlit_mic_recorder import mic_recorder
+import speech_recognition as sr
 import requests
 import json
 import io
 
-# --- 設定 ---
+# --- 設定（ここにGASのURLを貼る） ---
 GAS_URL = "あなたのGASのURLをここに貼る"
 
 st.set_page_config(page_title="おはなしメモ", page_icon="🎤")
-st.title("🎤 おはなしメモ (安定版)")
+st.title("🎤 おはなしメモ (最終版)")
 
 translator = Translator()
+r = sr.Recognizer()
 
-# --- 録音ボタン（より確実な方式に変更） ---
 st.write("ボタンを押して録音し、終わったらもう一度押してください。")
 audio = mic_recorder(
     start_prompt="🎤 録音開始",
@@ -21,26 +22,34 @@ audio = mic_recorder(
     key='recorder'
 )
 
-# 録音データが届いたら処理
 if audio:
-    # 音声からテキストへの変換（Streamlitの標準機能を利用）
-    # ※ 本来は音声認識APIが必要ですが、まずはテキスト入力でテストできる窓を作ります
-    st.audio(audio['bytes'])
-    st.info("音声が届きました！")
+    # 録音データを処理可能な形式に変換
+    audio_bio = io.BytesIO(audio['bytes'])
     
-    # テキスト入力欄（音声認識が不安定な時のバックアップ）
-    text_input = st.text_input("ここに日本語を入力、または音声から自動入力されます", "")
-    
-    if text_input:
+    with sr.AudioFile(audio_bio) as source:
+        audio_data = r.record(source)
         try:
-            translated = translator.translate(text_input, src='ja', dest='en')
+            # Googleの音声認識を実行
+            text = r.recognize_google(audio_data, language='ja-JP')
+            
+            st.subheader("聞き取った内容:")
+            st.info(text)
+            
+            # 翻訳実行
+            translated = translator.translate(text, src='ja', dest='en')
             st.subheader("英語翻訳:")
             st.success(translated.text)
             
-            # GAS送信
+            # GASへの送信
             if GAS_URL != "あなたのGASのURLをここに貼る":
-                data = {"ja": text_input, "trans": translated.text}
+                data = {"ja": text, "trans": translated.text}
                 requests.post(GAS_URL, data=json.dumps(data))
-                st.toast("スプレッドシートに保存しました！")
+                st.toast("スプレッドシートに保存完了！")
+                
+        except sr.UnknownValueError:
+            st.warning("声がうまく聞き取れませんでした。もう一度はっきり話してみてください。")
         except Exception as e:
-            st.error(f"翻訳エラー: {e}")
+            st.error(f"エラーが発生しました: {e}")
+
+st.divider()
+st.caption("※音声認識にはGoogleのサービスを利用しています。")
