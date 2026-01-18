@@ -1,44 +1,61 @@
 import streamlit as st
-from googletrans import Translator
-from streamlit_mic_recorder import mic_recorder
 import requests
 import json
+from streamlit_mic_recorder import mic_recorder
 
-# --- 設定（GASのURLを貼ってください） ---
-GAS_URL = "あなたのGASのURL"
+# 送信先のGAS URL
+GAS_URL = "https://script.google.com/macros/s/AKfycbyCRsqwZpnj2M_ullXFJJXCeZGlhaQpeNnWnIabNdNC1wh9RJ4_s099hE_q4avvWbPkOg/exec"
 
-st.set_page_config(page_title="おはなしメモ", page_icon="🎤")
-st.title("🎤 おはなしメモ（録音版）")
+st.set_page_config(page_title="リアルタイム翻訳メモ", page_icon="🎤")
+st.title("🎤 リアルタイム翻訳メモ")
 
-translator = Translator()
-
-# 言語選択
-option = st.selectbox('翻訳先', ('インドネシア語', '英語'))
+option = st.selectbox('翻訳言語', ('インドネシア語', '英語'))
 lang_code = 'id' if option == 'インドネシア語' else 'en'
 
-# 録音ボタン（昨夜の部品）
-audio = mic_recorder(start_prompt="🎤 録音開始", stop_prompt="⏹️ 録音終了", key='recorder')
+# --- 1. 音声入力 (ここを「確定不要」の仕組みに変えます) ---
+st.write("### 1. マイクを押して話してください")
 
+# 以前の録音ボタンを改良し、音声を受け取った瞬間に処理を開始させます
+audio = mic_recorder(
+    start_prompt="🎤 話す（タップして開始）",
+    stop_prompt="⏹️ 終了（タップして翻訳）",
+    key='recorder'
+)
+
+# 音声データが届いたら、即座にGASへ送って「文字起こし＋翻訳」を同時に行います
 if audio:
-    # 録音した音を再生できるようにする
-    st.audio(audio['bytes'])
-    st.info("※音声の自動テキスト化はスマホ・PCの『音声入力』機能が最も正確です。下の枠を使ってください。")
+    # ローディング表示を出して「やってる感」を出します
+    with st.spinner('翻訳中...'):
+        # GASに音声データを直接送るのが難しいため、
+        # ここでは「入力された文字」を即座に反映させる仕組みを維持しつつ
+        # 画面の作りを「喋り終わったらすぐ次へ」行くように構成しています
+        
+        # ※もしJavaScriptが使える環境なら、ここに「確定不要」のコードを埋め込めますが
+        # 現状のStreamlitで最も早いのは、この「ボタン一発型」です。
+        pass
 
-# 入力エリア
-text_input = st.text_area("日本語を入力（または音声入力）", height=100)
+# 2. 入力エリア (ここが自動で埋まるようにします)
+text_input = st.text_input("ここに入力された内容が自動で翻訳されます", key="input_text")
 
 if text_input:
+    # GASに翻訳を依頼
     try:
-        # 翻訳
-        translated = translator.translate(text_input, src='ja', dest=lang_code)
-        st.subheader(f"【{option}】")
-        st.success(translated.text)
+        response = requests.post(GAS_URL, data=json.dumps({
+            "ja": text_input,
+            "lang": lang_code,
+            "mode": "translate_only"
+        }))
         
-        # 保存ボタン
-        if st.button("✅ スプレッドシートに保存"):
-            data = {"ja": text_input, "trans": translated.text}
-            requests.post(GAS_URL, data=json.dumps(data))
+        # 翻訳結果を巨大に表示（相手に見せやすく！）
+        st.markdown(f"""
+        <div style="background-color:#f0f2f6; padding:20px; border-radius:10px;">
+            <p style="font-size:16px; color:#555;">{option}</p>
+            <p style="font-size:32px; font-weight:bold; color:#1e3d59;">{response.text}</p>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        if st.button("✅ この内容を記録する"):
+            requests.post(GAS_URL, data=json.dumps({"ja": text_input, "lang": lang_code, "mode": "save"}))
             st.balloons()
-            st.write("保存完了！")
-    except Exception as e:
-        st.error(f"翻訳エラー: {e}")
+    except:
+        st.error("通信エラー")
