@@ -1,39 +1,41 @@
 import streamlit as st
-from googletrans import Translator
 import requests
 import json
+import urllib.parse
 
 # --- 設定（GASのURLをここに貼る） ---
 GAS_URL = "あなたのGASのURLをここに貼る"
 
-st.set_page_config(page_title="翻訳メモ(インドネシア語)", page_icon="🇮🇩")
-st.title("🇮🇩 リアルタイム翻訳メモ")
+st.set_page_config(page_title="翻訳保存メモ", page_icon="🎤")
+st.title("🎤 翻訳メモ（最終安定版）")
 
-translator = Translator()
+# 言語選択
+option = st.selectbox('翻訳先を選んでください', ('インドネシア語', '英語'))
+lang_code = 'id' if option == 'インドネシア語' else 'en'
 
-st.write("キーボードのマイクで話すと、リアルタイムでインドネシア語になります。")
-
-# 入力されたら即座に反応するように設定
-text_input = st.text_area("日本語を入力（マイクで話してください）", height=100)
+st.write("### 1. 日本語を話す（または入力）")
+text_input = st.text_area("ここをタップしてマイクで話してください", height=100)
 
 if text_input:
-    try:
-        # 【修正】翻訳先をインドネシア語 'id' に設定
-        translated = translator.translate(text_input, src='ja', dest='id')
-        
-        # リアルタイム表示
-        st.subheader("インドネシア語 (Bahasa Indonesia):")
-        st.success(translated.text)
-        
-        # 保存ボタン
-        if st.button("✅ この内容を保存する"):
-            if GAS_URL != "あなたのGASのURLをここに貼る":
-                data = {"ja": text_input, "trans": translated.text}
-                requests.post(GAS_URL, data=json.dumps(data), headers={'Content-Type': 'application/json'})
-                st.balloons()
-                st.info("スプレッドシートに保存しました！")
-    except Exception as e:
-        st.error(f"翻訳エラー: {e}")
+    st.write("---")
+    st.write("### 2. 翻訳結果")
+    
+    # Google翻訳のページへのリンクを表示（確実なバックアップ）
+    encoded_text = urllib.parse.quote(text_input)
+    google_url = f"https://translate.google.com/?sl=ja&tl={lang_code}&text={encoded_text}&op=translate"
+    
+    st.markdown(f"[👉 もし表示されない場合はこちらで翻訳]({google_url})")
+
+    # 簡易的な翻訳表示（GASに翻訳を任せる仕組み）
+    if st.button(f"✅ スプレッドシートへ保存"):
+        if GAS_URL != "あなたのGASのURLをここに貼る":
+            # GAS側で翻訳も行うようにデータを送る
+            data = {"ja": text_input, "lang": lang_code}
+            requests.post(GAS_URL, data=json.dumps(data), headers={'Content-Type': 'application/json'})
+            st.balloons()
+            st.success("スプレッドシートに送信しました！")
+        else:
+            st.warning("GASのURLを設定してください")
 
 st.divider()
-st.caption("※スマホのキーボードで『音声入力』をオンにして話してください。")
+st.caption("PC: Windowsキー + H / Mac: fnキー2回 で音声入力")
