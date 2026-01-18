@@ -2,45 +2,46 @@ import streamlit as st
 import requests
 import json
 
-# 送信先のGAS URL（あなたの専用URLに書き換え済みです）
+# 送信先のGAS URL
 GAS_URL = "https://script.google.com/macros/s/AKfycbyCRsqwZpnj2M_ullXFJJXCeZGlhaQpeNnWnIabNdNC1wh9RJ4_s099hE_q4avvWbPkOg/exec"
 
 st.set_page_config(page_title="おはなしメモ", page_icon="🎤")
-st.title("🎤 おはなしメモ（PC安定版）")
+st.title("🎤 リアルタイム翻訳メモ")
 
 # 言語選択
-option = st.selectbox('翻訳したい言語を選んでください', ('インドネシア語', '英語'))
+option = st.selectbox('翻訳言語', ('インドネシア語', '英語'))
 lang_code = 'id' if option == 'インドネシア語' else 'en'
 
-st.write(f"現在は **{option}** 設定です。")
+# 1. 入力エリア（音声入力が終わると、プログラムが自動で下へ進みます）
+text_input = st.text_area("日本語で話してください（入力が終わると自動で翻訳します）", height=120)
 
-# 入力エリア
-st.write("### 1. 日本語で話してください")
-text_input = st.text_area("ここをクリックして [Windowsキー + H] で音声入力", height=150)
-
+# --- ここから「自動翻訳」の処理 ---
 if text_input:
-    st.write("---")
-    st.write("### 2. スプレッドシートへ保存")
+    # GASに翻訳だけをお願いする
+    payload = {
+        "ja": text_input,
+        "lang": lang_code,
+        "mode": "translate_only" # 翻訳だけして、まだ保存しないモード
+    }
     
-    if st.button(f"✅ {option}に翻訳して保存する"):
-        # GASへデータを送信
-        data = {
-            "ja": text_input,
-            "lang": lang_code
-        }
+    try:
+        # ボタンを押さなくても、入力があれば即座にGASに通信
+        response = requests.post(GAS_URL, data=json.dumps(payload))
+        translated_text = response.text # GASから返ってきた翻訳結果
         
-        try:
-            # タイムアウト設定を追加して送信
-            response = requests.post(GAS_URL, data=json.dumps(data), timeout=10)
+        # 翻訳結果を即座に表示！
+        st.subheader(f"【{option}】")
+        st.success(translated_text)
+        
+        # 2. 保存ボタン（翻訳結果を見てから、残したい場合だけ押す）
+        if st.button("✅ この内容をシートに保存する"):
+            save_payload = {"ja": text_input, "lang": lang_code, "mode": "save"}
+            requests.post(GAS_URL, data=json.dumps(save_payload))
+            st.balloons()
+            st.write("スプレッドシートに記録しました！")
             
-            if response.status_code == 200:
-                st.balloons()
-                st.success("スプレッドシートに送信しました！")
-                st.info("スプレッドシートを開いて、3列目に翻訳が出ているか確認してください。")
-            else:
-                st.error(f"エラーが発生しました。GAS側の設定を確認してください。(Status: {response.status_code})")
-        except Exception as e:
-            st.error(f"送信エラー: {e}")
+    except Exception as e:
+        st.error(f"翻訳通信エラー: {e}")
 
 st.divider()
-st.caption("※画面上に翻訳が出ないのは安定動作のための仕様です。シート側で結果を確認してください。")
+st.caption("PC: [Win+H] / スマホ: キーボードのマイク で音声入力してください。")
