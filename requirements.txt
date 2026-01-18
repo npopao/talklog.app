@@ -1,4 +1,4 @@
 streamlit
-googletrans-py==4.0.0rc1
+googletrans-py==4.0.0.rc1
 streamlit-mic-recorder
 requests
