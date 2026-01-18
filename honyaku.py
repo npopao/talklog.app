@@ -3,42 +3,37 @@ from googletrans import Translator
 import requests
 import json
 
-# --- 設定（ここにGASのURLを後で貼ります） ---
+# --- 設定（GASのURLをここに貼る） ---
 GAS_URL = "あなたのGASのURLをここに貼る"
 
-st.set_page_config(page_title="翻訳保存ツール", page_icon="📝")
-st.title("📝 現場用・おはなしメモ")
+st.set_page_config(page_title="翻訳メモ(インドネシア語)", page_icon="🇮🇩")
+st.title("🇮🇩 リアルタイム翻訳メモ")
 
 translator = Translator()
 
-st.write("下の枠をタップして、キーボードのマイクで話すか、文字を入力してください。")
+st.write("キーボードのマイクで話すと、リアルタイムでインドネシア語になります。")
 
-# 入力エリア
-text_input = st.text_area("日本語を入力", placeholder="例：明日の会議は10時からです", height=150)
+# 入力されたら即座に反応するように設定
+text_input = st.text_area("日本語を入力（マイクで話してください）", height=100)
 
 if text_input:
     try:
-        # 翻訳実行
-        translated = translator.translate(text_input, src='ja', dest='en')
+        # 【修正】翻訳先をインドネシア語 'id' に設定
+        translated = translator.translate(text_input, src='ja', dest='id')
         
-        st.subheader("英語翻訳:")
+        # リアルタイム表示
+        st.subheader("インドネシア語 (Bahasa Indonesia):")
         st.success(translated.text)
         
-        # 送信ボタン
-        if st.button("✅ この内容をスプレッドシートに保存"):
+        # 保存ボタン
+        if st.button("✅ この内容を保存する"):
             if GAS_URL != "あなたのGASのURLをここに貼る":
                 data = {"ja": text_input, "trans": translated.text}
-                response = requests.post(GAS_URL, data=json.dumps(data), headers={'Content-Type': 'application/json'})
-                if response.status_code == 200:
-                    st.balloons()
-                    st.info("スプレッドシートに保存しました！")
-                else:
-                    st.error("保存に失敗しました。URLを確認してください。")
-            else:
-                st.warning("GASのURLが設定されていません。")
-                
+                requests.post(GAS_URL, data=json.dumps(data), headers={'Content-Type': 'application/json'})
+                st.balloons()
+                st.info("スプレッドシートに保存しました！")
     except Exception as e:
         st.error(f"翻訳エラー: {e}")
 
 st.divider()
-st.caption("スマホのキーボードにあるマイクを使うと、きれいに聞き取れます。")
+st.caption("※スマホのキーボードで『音声入力』をオンにして話してください。")
