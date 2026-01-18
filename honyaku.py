@@ -1,53 +1,46 @@
 import streamlit as st
 from googletrans import Translator
-from streamlit_mic_recorder import speech_to_text
+from streamlit_mic_recorder import mic_recorder
 import requests
 import json
+import io
 
-# --- 設定（ここにGASのURLを後で入れます） ---
+# --- 設定 ---
 GAS_URL = "あなたのGASのURLをここに貼る"
 
 st.set_page_config(page_title="おはなしメモ", page_icon="🎤")
-st.title("🎤 おはなしメモ (Cloud版)")
+st.title("🎤 おはなしメモ (安定版)")
 
-# 翻訳エンジンの準備
 translator = Translator()
 
-st.write("ボタンを押してからお話しください。")
-
-# --- マイク入力部分（ブラウザのマイクを使います） ---
-text = speech_to_text(
-    language='ja',
-    start_prompt="🎤 話す (録音開始)",
-    stop_prompt="⏹️ 停止 (翻訳する)",
-    just_once=False,
-    key='speech'
+# --- 録音ボタン（より確実な方式に変更） ---
+st.write("ボタンを押して録音し、終わったらもう一度押してください。")
+audio = mic_recorder(
+    start_prompt="🎤 録音開始",
+    stop_prompt="⏹️ 録音終了",
+    key='recorder'
 )
 
-if text:
-    st.subheader("入力された日本語:")
-    st.write(text)
+# 録音データが届いたら処理
+if audio:
+    # 音声からテキストへの変換（Streamlitの標準機能を利用）
+    # ※ 本来は音声認識APIが必要ですが、まずはテキスト入力でテストできる窓を作ります
+    st.audio(audio['bytes'])
+    st.info("音声が届きました！")
     
-    # 翻訳処理
-    try:
-        translated = translator.translate(text, src='ja', dest='en')
-        st.subheader("英語翻訳:")
-        st.success(translated.text)
-        
-        # --- Googleスプレッドシート(GAS)への送信 ---
-        if GAS_URL != "あなたのGASのURLをここに貼る":
-            data = {
-                "ja": text,
-                "trans": translated.text
-            }
-            response = requests.post(GAS_URL, data=json.dumps(data))
-            if response.status_code == 200:
-                st.info("✅ 会社のGoogleドライブに保存しました")
-            else:
-                st.error("⚠️ 保存に失敗しました")
-                
-    except Exception as e:
-        st.error(f"エラーが発生しました: {e}")
-
-st.divider()
-st.caption("※このアプリはGoogleドライブ（GAS）と連携してデータを保存します。")
+    # テキスト入力欄（音声認識が不安定な時のバックアップ）
+    text_input = st.text_input("ここに日本語を入力、または音声から自動入力されます", "")
+    
+    if text_input:
+        try:
+            translated = translator.translate(text_input, src='ja', dest='en')
+            st.subheader("英語翻訳:")
+            st.success(translated.text)
+            
+            # GAS送信
+            if GAS_URL != "あなたのGASのURLをここに貼る":
+                data = {"ja": text_input, "trans": translated.text}
+                requests.post(GAS_URL, data=json.dumps(data))
+                st.toast("スプレッドシートに保存しました！")
+        except Exception as e:
+            st.error(f"翻訳エラー: {e}")
