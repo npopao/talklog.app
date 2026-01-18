@@ -3,7 +3,7 @@ import requests
 import json
 
 # 送信先のGAS URL
-GAS_URL = "https://script.google.com/macros/s/AKfycbyCRsqwZpnj2M_ullXFJJXCeZGlhaQpeNnWnIabNdNC1wh9RJ4_s099hE_q4avvWbPkOg/exec"
+GAS_URL = "https://script.google.com/macros/s/AKfycbwcsvq1jvhrUzpw1fDw10E8VUQg0qIhUAVPJEQzLqRLPSi5sAXo1lK8XFo1gAc3aecTKA/exec"
 
 st.set_page_config(page_title="おはなしメモ", page_icon="🎤")
 st.title("🎤 リアルタイム翻訳メモ")
