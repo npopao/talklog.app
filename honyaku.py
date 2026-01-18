@@ -6,11 +6,11 @@ import requests
 import json
 import io
 
-# --- 設定（ここにGASのURLを貼る） ---
+# --- 設定（GASのURLをここに貼る） ---
 GAS_URL = "あなたのGASのURLをここに貼る"
 
 st.set_page_config(page_title="おはなしメモ", page_icon="🎤")
-st.title("🎤 おはなしメモ (最終版)")
+st.title("🎤 おはなしメモ (解決版)")
 
 translator = Translator()
 r = sr.Recognizer()
@@ -23,33 +23,37 @@ audio = mic_recorder(
 )
 
 if audio:
-    # 録音データを処理可能な形式に変換
+    # 録音データを変換可能なバイナリとして読み込む
     audio_bio = io.BytesIO(audio['bytes'])
     
-    with sr.AudioFile(audio_bio) as source:
-        audio_data = r.record(source)
-        try:
-            # Googleの音声認識を実行
-            text = r.recognize_google(audio_data, language='ja-JP')
+    try:
+        # 【修正ポイント】音声データを読み取ってGoogleが認識できる形にする
+        with sr.AudioFile(audio_bio) as source:
+            audio_data = r.record(source)
             
-            st.subheader("聞き取った内容:")
-            st.info(text)
+        # Googleの音声認識を実行
+        text = r.recognize_google(audio_data, language='ja-JP')
+        
+        st.subheader("聞き取った内容:")
+        st.info(text)
+        
+        # 翻訳実行
+        translated = translator.translate(text, src='ja', dest='en')
+        st.subheader("英語翻訳:")
+        st.success(translated.text)
+        
+        # GASへの送信
+        if GAS_URL != "あなたのGASのURLをここに貼る":
+            data = {"ja": text, "trans": translated.text}
+            requests.post(GAS_URL, data=json.dumps(data), headers={'Content-Type': 'application/json'})
+            st.toast("スプレッドシートに保存完了！")
             
-            # 翻訳実行
-            translated = translator.translate(text, src='ja', dest='en')
-            st.subheader("英語翻訳:")
+    except sr.UnknownValueError:
+        st.warning("声が聞き取れませんでした。もう少し長く、はっきり話してみてください。")
+    except Exception as e:
+        # 万が一エラーが出ても、手入力でリカバリーできるように入力欄を出す
+        st.error(f"音声認識ができませんでした。直接入力も可能です。")
+        manual_text = st.text_input("ここに日本語を入力してください")
+        if manual_text:
+            translated = translator.translate(manual_text, src='ja', dest='en')
             st.success(translated.text)
-            
-            # GASへの送信
-            if GAS_URL != "あなたのGASのURLをここに貼る":
-                data = {"ja": text, "trans": translated.text}
-                requests.post(GAS_URL, data=json.dumps(data))
-                st.toast("スプレッドシートに保存完了！")
-                
-        except sr.UnknownValueError:
-            st.warning("声がうまく聞き取れませんでした。もう一度はっきり話してみてください。")
-        except Exception as e:
-            st.error(f"エラーが発生しました: {e}")
-
-st.divider()
-st.caption("※音声認識にはGoogleのサービスを利用しています。")
