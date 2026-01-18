@@ -1,59 +1,47 @@
 import streamlit as st
 from googletrans import Translator
-from streamlit_mic_recorder import mic_recorder
-import speech_recognition as sr
 import requests
 import json
-import io
 
 # --- 設定（GASのURLをここに貼る） ---
 GAS_URL = "あなたのGASのURLをここに貼る"
 
-st.set_page_config(page_title="おはなしメモ", page_icon="🎤")
-st.title("🎤 おはなしメモ (解決版)")
+st.set_page_config(page_title="おはなしメモ", page_icon="📝")
+st.title("📝 おはなしメモ (現場安定版)")
 
 translator = Translator()
-r = sr.Recognizer()
 
-st.write("ボタンを押して録音し、終わったらもう一度押してください。")
-audio = mic_recorder(
-    start_prompt="🎤 録音開始",
-    stop_prompt="⏹️ 録音終了",
-    key='recorder'
-)
+st.write("日本語を入力して「翻訳＆保存」を押してください。")
 
-if audio:
-    # 録音データを変換可能なバイナリとして読み込む
-    audio_bio = io.BytesIO(audio['bytes'])
-    
-    try:
-        # 【修正ポイント】音声データを読み取ってGoogleが認識できる形にする
-        with sr.AudioFile(audio_bio) as source:
-            audio_data = r.record(source)
+# 入力欄
+text_input = st.text_area("日本語を入力", placeholder="例：明日の会議は10時からです", height=100)
+
+if st.button("🚀 翻訳して保存"):
+    if text_input:
+        try:
+            # 翻訳実行
+            translated = translator.translate(text_input, src='ja', dest='en')
             
-        # Googleの音声認識を実行
-        text = r.recognize_google(audio_data, language='ja-JP')
-        
-        st.subheader("聞き取った内容:")
-        st.info(text)
-        
-        # 翻訳実行
-        translated = translator.translate(text, src='ja', dest='en')
-        st.subheader("英語翻訳:")
-        st.success(translated.text)
-        
-        # GASへの送信
-        if GAS_URL != "あなたのGASのURLをここに貼る":
-            data = {"ja": text, "trans": translated.text}
-            requests.post(GAS_URL, data=json.dumps(data), headers={'Content-Type': 'application/json'})
-            st.toast("スプレッドシートに保存完了！")
-            
-    except sr.UnknownValueError:
-        st.warning("声が聞き取れませんでした。もう少し長く、はっきり話してみてください。")
-    except Exception as e:
-        # 万が一エラーが出ても、手入力でリカバリーできるように入力欄を出す
-        st.error(f"音声認識ができませんでした。直接入力も可能です。")
-        manual_text = st.text_input("ここに日本語を入力してください")
-        if manual_text:
-            translated = translator.translate(manual_text, src='ja', dest='en')
+            # 結果表示
+            st.subheader("英語翻訳:")
             st.success(translated.text)
+            
+            # GASへの送信
+            if GAS_URL != "あなたのGASのURLをここに貼る":
+                data = {"ja": text_input, "trans": translated.text}
+                response = requests.post(GAS_URL, data=json.dumps(data), headers={'Content-Type': 'application/json'})
+                
+                if response.status_code == 200:
+                    st.toast("✅ スプレッドシートに保存しました！")
+                else:
+                    st.error("保存に失敗しました。URLを確認してください。")
+            else:
+                st.warning("⚠️ GASのURLが設定されていません。")
+                
+        except Exception as e:
+            st.error(f"エラーが発生しました: {e}")
+    else:
+        st.warning("日本語を入力してください。")
+
+st.divider()
+st.caption("スマホの音声入力機能（マイクアイコン）を使えば、声での入力も可能です。")
