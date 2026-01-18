@@ -4,7 +4,7 @@ import json
 import urllib.parse
 
 # --- 設定（GASのURLをここに貼る） ---
-GAS_URL = "https://script.google.com/macros/s/AKfycbyCRsqwZpnj2M_ullXFJJXCeZGlhaQpeNnWnIabNdNC1wh9RJ4_s099hE_q4avvWbPkOg/exec"
+GAS_URL = "あなたのGASのURLをここに貼る"
 
 st.set_page_config(page_title="翻訳保存メモ", page_icon="🎤")
 st.title("🎤 翻訳メモ（最終安定版）")
